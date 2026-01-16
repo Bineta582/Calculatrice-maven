@@ -3,28 +3,67 @@ pipeline {
 
     tools {
         maven 'Maven-3.9'
+        jdk 'JDK17'
+    }
+
+    environment {
+        SONARQUBE_SERVER = 'sonarqube'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build & Test') {
+        stage('Compile') {
             steps {
-                sh 'mvn clean test'
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh '''
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=calculatrice-maven \
+                    -Dsonar.projectName=Calculatrice Maven \
+                    -Dsonar.host.url=http://sonarqube:9000
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'BUILD SUCCESS 🎉'
+            echo 'PIPELINE SUCCESS '
         }
         failure {
-            echo 'BUILD FAILED ❌'
+            echo 'PIPELINE FAILED '
         }
     }
 }
